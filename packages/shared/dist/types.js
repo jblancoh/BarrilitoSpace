@@ -9,5 +9,6 @@ exports.SOCKET_EVENTS = {
     PLAYER_MOVED: 'player_moved',
     PLAYER_JOINED: 'player_joined',
     PLAYER_LEFT: 'player_left',
-    STATE_UPDATE: 'state_update', // Full state sync if needed
+    CURRENT_PLAYERS: 'current_players',
+    NEW_PLAYER: 'new_player',
 };

@@ -6,7 +6,9 @@ export interface Player {
     id: string;
     name: string;
     position: Vector2;
+    targetPosition?: Vector2;
     avatarUrl?: string;
+    color?: string;
 }
 export interface GameState {
     players: Record<string, Player>;
@@ -19,5 +21,19 @@ export declare const SOCKET_EVENTS: {
     readonly PLAYER_MOVED: "player_moved";
     readonly PLAYER_JOINED: "player_joined";
     readonly PLAYER_LEFT: "player_left";
-    readonly STATE_UPDATE: "state_update";
+    readonly CURRENT_PLAYERS: "current_players";
+    readonly NEW_PLAYER: "new_player";
 };
+export interface JoinRoomPayload {
+    name: string;
+    avatarUrl?: string;
+}
+export interface PlayerMovedPayload {
+    id: string;
+    position: Vector2;
+}
+export interface PlayerJoinedPayload extends Player {
+}
+export interface PlayerLeftPayload {
+    id: string;
+}
