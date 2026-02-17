@@ -48,7 +48,7 @@ export class GameManager {
                 default: 'arcade',
                 arcade: {
                     gravity: { x: 0, y: 0 }, // Top down game, no gravity
-                    debug: true,
+                    debug: false,
                 },
             },
             scene: [MainScene],

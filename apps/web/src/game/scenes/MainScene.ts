@@ -37,6 +37,22 @@ export class MainScene extends Phaser.Scene {
         this.cameras.main.setBounds(-2000, -2000, 4000, 4000);
         this.cameras.main.setBackgroundColor('#0f0f1a');
 
+        // Create a title in the world
+        this.add.text(0, -200, 'Barrilito Lounge', {
+            fontSize: '48px',
+            fontFamily: 'Inter, Arial, sans-serif',
+            color: '#6366f1',
+            fontStyle: 'bold'
+        }).setOrigin(0.5);
+
+        // Add some "decorations"
+        for (let i = 0; i < 20; i++) {
+            const x = Phaser.Math.Between(-1000, 1000);
+            const y = Phaser.Math.Between(-1000, 1000);
+            const size = Phaser.Math.Between(10, 30);
+            this.add.circle(x, y, size, 0x333333, 0.5).setDepth(-0.5);
+        }
+
         // Set up socket listeners via GameManager
         this.setupSocketListeners();
 
