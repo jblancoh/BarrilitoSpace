@@ -1,11 +1,16 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { GameModule } from './game/game.module';
 import { LivekitModule } from './livekit/livekit.module';
 
 @Module({
-  imports: [GameModule, LivekitModule],
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    GameModule,
+    LivekitModule
+  ],
   controllers: [AppController],
   providers: [AppService],
 })

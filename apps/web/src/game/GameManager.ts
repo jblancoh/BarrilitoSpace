@@ -36,9 +36,13 @@ export class GameManager {
 
         const config: Phaser.Types.Core.GameConfig = {
             type: Phaser.AUTO,
-            width: window.innerWidth,
-            height: window.innerHeight,
             parent: containerId,
+            scale: {
+                mode: Phaser.Scale.RESIZE,
+                autoCenter: Phaser.Scale.CENTER_BOTH,
+                width: '100%',
+                height: '100%'
+            },
             backgroundColor: '#2d2d2d',
             physics: {
                 default: 'arcade',
