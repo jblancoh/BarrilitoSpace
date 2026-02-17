@@ -6,20 +6,15 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.AppModule = void 0;
+exports.LivekitModule = void 0;
 const common_1 = require("@nestjs/common");
-const app_controller_1 = require("./app.controller");
-const app_service_1 = require("./app.service");
-const game_module_1 = require("./game/game.module");
-const livekit_module_1 = require("./livekit/livekit.module");
-let AppModule = class AppModule {
+const livekit_controller_1 = require("./livekit.controller");
+let LivekitModule = class LivekitModule {
 };
-exports.AppModule = AppModule;
-exports.AppModule = AppModule = __decorate([
+exports.LivekitModule = LivekitModule;
+exports.LivekitModule = LivekitModule = __decorate([
     (0, common_1.Module)({
-        imports: [game_module_1.GameModule, livekit_module_1.LivekitModule],
-        controllers: [app_controller_1.AppController],
-        providers: [app_service_1.AppService],
+        controllers: [livekit_controller_1.LivekitController],
     })
-], AppModule);
-//# sourceMappingURL=app.module.js.map
+], LivekitModule);
+//# sourceMappingURL=livekit.module.js.map

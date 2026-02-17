@@ -18,7 +18,7 @@ let GameService = class GameService {
             name,
             position: { x: 400, y: 300 },
             avatarUrl,
-            color: '#' + Math.floor(Math.random() * 16777215).toString(16)
+            color: '#' + Math.floor(Math.random() * 16777215).toString(16),
         };
         this.gameState.players[id] = newPlayer;
         return newPlayer;
