@@ -20,8 +20,9 @@ export class MainScene extends Phaser.Scene {
     }
 
     preload() {
-        // Load assets here if needed
-        // this.load.image('avatar', 'assets/avatar.png');
+        this.load.image('floor', 'assets/floor.png');
+        this.load.image('crate', 'assets/crate.png');
+        this.load.image('avatar', 'assets/avatar.png');
     }
 
     create() {
@@ -33,10 +34,16 @@ export class MainScene extends Phaser.Scene {
             console.log('MainScene started, already connected. My ID:', this.myPlayerId);
         }
 
-        // Create a more visible grid background
-        this.add.grid(0, 0, 4000, 4000, 64, 64, 0x1a1a2e, 0.5, 0x333355, 0.5)
+        // Create a tiled background using our floor texture
+        this.add.tileSprite(0, 0, 4000, 4000, 'floor')
             .setOrigin(0.5)
-            .setDepth(-1);
+            .setDepth(-1)
+            .setAlpha(0.3);
+
+        // Optional: keep grid for visual reference on top
+        this.add.grid(0, 0, 4000, 4000, 64, 64, 0, 0, 0x333355, 0.2)
+            .setOrigin(0.5)
+            .setDepth(-0.9);
 
         // Set world bounds (larger)
         this.physics.world.setBounds(-2000, -2000, 4000, 4000);
@@ -80,14 +87,11 @@ export class MainScene extends Phaser.Scene {
         ];
 
         positions.forEach(pos => {
-            const rect = this.add.rectangle(pos.x, pos.y, 100, 100, 0x6366f1, 0.8);
-            rect.setStrokeStyle(4, 0xffffff);
-            this.physics.add.existing(rect, true);
-            obstacles.add(rect);
+            const crate = this.add.image(pos.x, pos.y, 'crate');
+            crate.setDisplaySize(100, 100);
+            this.physics.add.existing(crate, true);
+            obstacles.add(crate);
         });
-
-        // Add collider for local player (this will be tricky since we use velocity, but let's try)
-        // For now, these are just visual "markers" to test camera follow
     }
 
     update() {
@@ -96,6 +100,8 @@ export class MainScene extends Phaser.Scene {
         const myContainer = this.players.get(this.myPlayerId)!;
         const speed = 200;
         const body = myContainer.body as Phaser.Physics.Arcade.Body;
+
+        if (!body) return;
 
         body.setVelocity(0);
 
@@ -141,7 +147,6 @@ export class MainScene extends Phaser.Scene {
             let volume = 0;
             if (distance < hearingRadius) {
                 volume = 1 - (distance / hearingRadius);
-                // Linear falloff, could be changed to exponential/logarithmic
             }
 
             this.gameManager.mediaManager.setParticipantVolume(otherId, volume);
@@ -155,11 +160,10 @@ export class MainScene extends Phaser.Scene {
         });
     }
 
-
     private setupSocketListeners() {
         const socket = this.gameManager.socket;
 
-        // Clear existing listeners to prevent duplicates and errors from stale scenes
+        // Clear existing listeners
         socket.off(SOCKET_EVENTS.CONNECT);
         socket.off(SOCKET_EVENTS.CURRENT_PLAYERS);
         socket.off(SOCKET_EVENTS.NEW_PLAYER);
@@ -202,42 +206,45 @@ export class MainScene extends Phaser.Scene {
 
     private addPlayer(playerData: Player) {
         if (!this.add) return;
-        console.log('Adding player:', playerData.name, 'at', playerData.position, 'myId is:', this.myPlayerId);
         if (this.players.has(playerData.id)) return;
 
         const container = this.add.container(playerData.position.x, playerData.position.y);
-        container.setDepth(100); // Much higher depth
+        container.setDepth(100);
         container.setSize(40, 40);
 
-        // Avatar circle with border
-        const border = this.add.circle(0, 0, 22, 0xffffff);
-        const circle = this.add.circle(0, 0, 20, parseInt((playerData.color || '#6366f1').replace('#', '0x')));
-        container.add([border, circle]);
+        // Character Sprite
+        const sprite = this.add.sprite(0, 0, 'avatar');
+        sprite.setDisplaySize(44, 44);
 
-        // Name tag with polished styling
+        // Colored ring for player identity
+        const colorRing = this.add.circle(0, 0, 24);
+        colorRing.setStrokeStyle(3, parseInt((playerData.color || '#6366f1').replace('#', '0x')));
+
+        container.add([colorRing, sprite]);
+
+        // Name tag
         const text = this.add.text(0, -35, playerData.name, {
-            fontSize: '16px',
+            fontSize: '14px',
             fontFamily: 'Inter, Arial, sans-serif',
             color: '#ffffff',
             backgroundColor: '#000000aa',
-            padding: { x: 8, y: 4 }
+            padding: { x: 6, y: 3 }
         }).setOrigin(0.5).setDepth(101);
         container.add(text);
 
         this.physics.world.enable(container);
         const body = container.body as Phaser.Physics.Arcade.Body;
-        body.setCollideWorldBounds(true);
-        // Ensure body is centered on the visual elements
-        body.setOffset(-20, -20);
-        body.setSize(40, 40);
+        if (body) {
+            body.setCollideWorldBounds(true);
+            body.setOffset(-20, -20);
+            body.setSize(40, 40);
+        }
 
         this.players.set(playerData.id, container);
 
-        // If this is our player, make camera follow
         if (playerData.id === this.myPlayerId || playerData.id === this.gameManager.socket.id) {
-            console.log('Detected my player! ID:', playerData.id, 'Following...');
             this.cameras.main.startFollow(container, true, 0.1, 0.1);
-            this.myPlayerId = playerData.id; // Sync it just in case
+            this.myPlayerId = playerData.id;
         }
     }
 
@@ -251,20 +258,17 @@ export class MainScene extends Phaser.Scene {
     private updatePlayerPosition(id: string, position: Vector2) {
         const container = this.players.get(id);
         if (container) {
-            // Simple interpolation could be added here
             this.tweens.add({
                 targets: container,
                 x: position.x,
                 y: position.y,
-                duration: 50, // Update rate is usually faster, so keep this low
+                duration: 50,
             });
         }
     }
 
     private emitMovement(x: number, y: number) {
         if (!this.myPlayerId) return;
-
-        // Throttling could be added here
         this.gameManager.socket.emit(SOCKET_EVENTS.PLAYER_MOVED, {
             id: this.myPlayerId,
             position: { x, y },
