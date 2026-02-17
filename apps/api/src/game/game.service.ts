@@ -13,7 +13,7 @@ export class GameService {
       name,
       position: { x: 400, y: 300 }, // Default spawn
       avatarUrl,
-      color: '#' + Math.floor(Math.random() * 16777215).toString(16), // Random color
+      color: '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0'), // Random color
     };
     this.gameState.players[id] = newPlayer;
     return newPlayer;

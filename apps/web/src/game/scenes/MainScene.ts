@@ -27,6 +27,12 @@ export class MainScene extends Phaser.Scene {
     create() {
         this.cursors = this.input.keyboard!.createCursorKeys();
 
+        // Check if already connected
+        if (this.gameManager.socket.connected) {
+            this.myPlayerId = this.gameManager.socket.id || null;
+            console.log('MainScene started, already connected. My ID:', this.myPlayerId);
+        }
+
         // Create a more visible grid background
         this.add.grid(0, 0, 4000, 4000, 64, 64, 0x1a1a2e, 0.5, 0x333355, 0.5)
             .setOrigin(0.5)
@@ -69,8 +75,8 @@ export class MainScene extends Phaser.Scene {
         ];
 
         positions.forEach(pos => {
-            const rect = this.add.rectangle(pos.x, pos.y, 100, 100, 0x6366f1, 0.3);
-            rect.setStrokeStyle(2, 0x6366f1);
+            const rect = this.add.rectangle(pos.x, pos.y, 100, 100, 0x6366f1, 0.8);
+            rect.setStrokeStyle(4, 0xffffff);
             this.physics.add.existing(rect, true);
             obstacles.add(rect);
         });
@@ -173,30 +179,32 @@ export class MainScene extends Phaser.Scene {
     }
 
     private addPlayer(playerData: Player) {
+        console.log('Adding player:', playerData.name, 'at', playerData.position);
         if (this.players.has(playerData.id)) return;
 
         const container = this.add.container(playerData.position.x, playerData.position.y);
-        container.setDepth(10);
+        container.setDepth(100); // Much higher depth
         container.setSize(40, 40);
 
-        // Avatar circle with border
-        const border = this.add.circle(0, 0, 22, 0xffffff);
-        const circle = this.add.circle(0, 0, 20, parseInt((playerData.color || '#6366f1').replace('#', '0x')));
+        // Avatar circle with border - use bright colors for test
+        const border = this.add.circle(0, 0, 24, 0xff0000); // Red border
+        const circle = this.add.circle(0, 0, 20, 0x00ff00); // Green circle
         container.add([border, circle]);
 
         // Name tag with better styling
-        const text = this.add.text(0, -35, playerData.name, {
-            fontSize: '16px',
-            fontFamily: 'Inter, Arial, sans-serif',
-            color: '#ffffff',
-            backgroundColor: '#000000aa',
-            padding: { x: 8, y: 4 }
-        }).setOrigin(0.5);
+        const text = this.add.text(0, -40, playerData.name, {
+            fontSize: '20px',
+            fontFamily: 'Arial',
+            color: '#ffff00', // Yellow text
+            backgroundColor: '#000000',
+            padding: { x: 10, y: 5 }
+        }).setOrigin(0.5).setDepth(101);
         container.add(text);
 
         this.physics.world.enable(container);
         const body = container.body as Phaser.Physics.Arcade.Body;
         body.setCollideWorldBounds(true);
+        // Ensure body is centered on the visual elements
         body.setOffset(-20, -20);
         body.setSize(40, 40);
 
@@ -204,6 +212,7 @@ export class MainScene extends Phaser.Scene {
 
         // If this is our player, make camera follow
         if (playerData.id === this.myPlayerId) {
+            console.log('Camera following my player:', playerData.id);
             this.cameras.main.startFollow(container, true, 0.1, 0.1);
         }
     }
