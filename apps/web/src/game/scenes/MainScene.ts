@@ -10,6 +10,9 @@ export class MainScene extends Phaser.Scene {
     private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
     private gameManager!: GameManager;
     private myPlayerId: string | null = null;
+    private meetingZones: { id: string, zone: Phaser.GameObjects.Zone }[] = [];
+    private deskZones: { id: string, zone: Phaser.GameObjects.Zone }[] = [];
+    private playerZones: Map<string, string | null> = new Map(); // playerID -> zoneID (null if in public)
 
     constructor() {
         super({ key: 'MainScene' });
@@ -23,6 +26,9 @@ export class MainScene extends Phaser.Scene {
         this.load.image('floor', 'assets/floor.png');
         this.load.image('crate', 'assets/crate.png');
         this.load.image('avatar', 'assets/avatar.png');
+        this.load.image('desk', 'assets/desk.png');
+        this.load.image('carpet', 'assets/carpet.png');
+        this.load.image('table', 'assets/table.png');
     }
 
     create() {
@@ -75,6 +81,61 @@ export class MainScene extends Phaser.Scene {
         });
 
         this.createObstacles();
+        this.createWorkspace();
+    }
+
+    private createWorkspace() {
+        // Meeting Room 1: Main Lounge
+        const room1Pos = { x: -400, y: -400 };
+        const carpet1 = this.add.image(room1Pos.x, room1Pos.y, 'carpet');
+        carpet1.setDisplaySize(300, 300);
+        carpet1.setDepth(0);
+
+        const table1 = this.add.image(room1Pos.x, room1Pos.y, 'table');
+        table1.setDisplaySize(180, 100);
+        table1.setDepth(1);
+        this.physics.add.existing(table1, true); // Obstacle
+
+        const zone1 = this.add.zone(room1Pos.x, room1Pos.y, 300, 300);
+        this.meetingZones.push({ id: 'room_lounge', zone: zone1 });
+
+        // Debug: visualize zones (only for development)
+        const graphics = this.add.graphics().setDepth(0).setAlpha(0.2);
+        graphics.fillStyle(0x00ff00);
+        graphics.fillRect(room1Pos.x - 150, room1Pos.y - 150, 300, 300);
+
+        // Desk Area 1
+        const desks = [
+            { x: 400, y: -400 }, { x: 400, y: -250 }, { x: 400, y: -100 }
+        ];
+
+        desks.forEach((pos, index) => {
+            const desk = this.add.image(pos.x, pos.y, 'desk');
+            desk.setDisplaySize(80, 80);
+            desk.setDepth(1);
+            this.physics.add.existing(desk, true);
+
+            const zone = this.add.zone(pos.x, pos.y, 100, 100);
+            this.deskZones.push({ id: `desk_${index}`, zone: zone });
+
+            // Debug desk zones
+            graphics.fillStyle(0x0000ff);
+            graphics.fillRect(pos.x - 50, pos.y - 50, 100, 100);
+
+            // Visual label for private zone
+            this.add.text(pos.x, pos.y + 45, 'PRIVATE', {
+                fontSize: '10px',
+                color: '#6366f1'
+            }).setOrigin(0.5);
+        });
+
+        this.add.text(room1Pos.x, room1Pos.y - 170, 'CONFERENCE AREA', {
+            fontSize: '20px',
+            fontFamily: 'Inter, Arial',
+            color: '#ffffff',
+            backgroundColor: '#6366f1',
+            padding: { x: 10, y: 5 }
+        }).setOrigin(0.5);
     }
 
     private createObstacles() {
@@ -127,26 +188,77 @@ export class MainScene extends Phaser.Scene {
             this.emitMovement(myContainer.x, myContainer.y);
         }
 
+        this.updatePlayerZones();
         this.updateSpatialAudio();
+    }
+
+    private updatePlayerZones() {
+        if (this.meetingZones.length === 0) return; // Wait for initialization
+
+        this.players.forEach((container, id) => {
+            let currentZone: string | null = null;
+            const px = container.x;
+            const py = container.y;
+
+            // Check meeting zones
+            for (const { id: zoneId, zone } of this.meetingZones) {
+                const bounds = zone.getBounds();
+                if (Phaser.Geom.Rectangle.Contains(bounds, px, py)) {
+                    currentZone = zoneId;
+                    break;
+                }
+            }
+
+            // Check desks (private zones)
+            if (!currentZone) {
+                for (const { id: zoneId, zone } of this.deskZones) {
+                    const bounds = zone.getBounds();
+                    if (Phaser.Geom.Rectangle.Contains(bounds, px, py)) {
+                        currentZone = zoneId;
+                        break;
+                    }
+                }
+            }
+
+            this.playerZones.set(id, currentZone);
+        });
     }
 
     private updateSpatialAudio() {
         if (!this.myPlayerId || !this.players.has(this.myPlayerId)) return;
 
         const myPos = this.players.get(this.myPlayerId)!;
+        const myZone = this.playerZones.get(this.myPlayerId);
         const hearingRadius = 400;
 
         this.players.forEach((otherContainer, otherId) => {
             if (otherId === this.myPlayerId) return;
 
+            const otherZone = this.playerZones.get(otherId);
             const distance = Phaser.Math.Distance.Between(
                 myPos.x, myPos.y,
                 otherContainer.x, otherContainer.y
             );
 
             let volume = 0;
-            if (distance < hearingRadius) {
-                volume = 1 - (distance / hearingRadius);
+
+            // AUDIO LOGIC:
+            // 1. If in the same meeting zone -> Full volume (1.0) regardless of distance
+            // 2. If one is in a meeting zone and the other is not -> Muffled (0.2 max)
+            // 3. If both are in public -> Standard falloff
+            // 4. If in different private zones (desks) -> Muffled
+
+            if (myZone && otherZone && myZone === otherZone) {
+                volume = 1.0;
+            } else if (distance < hearingRadius) {
+                const baseVolume = 1 - (distance / hearingRadius);
+
+                // Muffling if zones don't match or one is in a private area
+                if (myZone !== otherZone) {
+                    volume = baseVolume * 0.3; // Muffled
+                } else {
+                    volume = baseVolume;
+                }
             }
 
             this.gameManager.mediaManager.setParticipantVolume(otherId, volume);
@@ -154,8 +266,11 @@ export class MainScene extends Phaser.Scene {
             // Also set visibility for video (simple toggle)
             const videoElement = document.querySelector(`video[data-participant-id="${otherId}"]`) as HTMLVideoElement;
             if (videoElement) {
-                videoElement.style.opacity = volume > 0.1 ? '1' : '0';
-                videoElement.style.pointerEvents = volume > 0.1 ? 'auto' : 'none';
+                // Video follows similar logic, but more strict on visibility
+                const shouldSee = (myZone === otherZone && myZone !== null) || distance < 200;
+                videoElement.style.opacity = shouldSee ? '1' : '0.2';
+                videoElement.style.filter = shouldSee ? 'none' : 'blur(5px)';
+                videoElement.style.pointerEvents = shouldSee ? 'auto' : 'none';
             }
         });
     }
