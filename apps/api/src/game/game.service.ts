@@ -11,7 +11,7 @@ export class GameService {
     const newPlayer: Player = {
       id,
       name,
-      position: { x: 400, y: 300 }, // Default spawn
+      position: { x: 0, y: 0 }, // Spawn at center for testing visibility
       avatarUrl,
       color: '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0'), // Random color
     };

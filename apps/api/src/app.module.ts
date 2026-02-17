@@ -7,7 +7,10 @@ import { LivekitModule } from './livekit/livekit.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env'
+    }),
     GameModule,
     LivekitModule
   ],

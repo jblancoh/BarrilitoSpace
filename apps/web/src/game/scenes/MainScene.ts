@@ -62,6 +62,11 @@ export class MainScene extends Phaser.Scene {
         // Set up socket listeners via GameManager
         this.setupSocketListeners();
 
+        // Clean up listeners on scene shutdown
+        this.events.on('shutdown', () => {
+            this.cleanupSocketListeners();
+        });
+
         this.createObstacles();
     }
 
@@ -154,6 +159,13 @@ export class MainScene extends Phaser.Scene {
     private setupSocketListeners() {
         const socket = this.gameManager.socket;
 
+        // Clear existing listeners to prevent duplicates and errors from stale scenes
+        socket.off(SOCKET_EVENTS.CONNECT);
+        socket.off(SOCKET_EVENTS.CURRENT_PLAYERS);
+        socket.off(SOCKET_EVENTS.NEW_PLAYER);
+        socket.off(SOCKET_EVENTS.PLAYER_LEFT);
+        socket.off(SOCKET_EVENTS.PLAYER_MOVED);
+
         socket.on(SOCKET_EVENTS.CONNECT, () => {
             console.log('Connected to server', socket.id);
             this.myPlayerId = socket.id || null;
@@ -178,26 +190,37 @@ export class MainScene extends Phaser.Scene {
         });
     }
 
+    private cleanupSocketListeners() {
+        const socket = this.gameManager.socket;
+        socket.off(SOCKET_EVENTS.CONNECT);
+        socket.off(SOCKET_EVENTS.CURRENT_PLAYERS);
+        socket.off(SOCKET_EVENTS.NEW_PLAYER);
+        socket.off(SOCKET_EVENTS.PLAYER_LEFT);
+        socket.off(SOCKET_EVENTS.PLAYER_MOVED);
+        console.log('Socket listeners cleaned up');
+    }
+
     private addPlayer(playerData: Player) {
-        console.log('Adding player:', playerData.name, 'at', playerData.position);
+        if (!this.add) return;
+        console.log('Adding player:', playerData.name, 'at', playerData.position, 'myId is:', this.myPlayerId);
         if (this.players.has(playerData.id)) return;
 
         const container = this.add.container(playerData.position.x, playerData.position.y);
         container.setDepth(100); // Much higher depth
         container.setSize(40, 40);
 
-        // Avatar circle with border - use bright colors for test
-        const border = this.add.circle(0, 0, 24, 0xff0000); // Red border
-        const circle = this.add.circle(0, 0, 20, 0x00ff00); // Green circle
+        // Avatar circle with border
+        const border = this.add.circle(0, 0, 22, 0xffffff);
+        const circle = this.add.circle(0, 0, 20, parseInt((playerData.color || '#6366f1').replace('#', '0x')));
         container.add([border, circle]);
 
-        // Name tag with better styling
-        const text = this.add.text(0, -40, playerData.name, {
-            fontSize: '20px',
-            fontFamily: 'Arial',
-            color: '#ffff00', // Yellow text
-            backgroundColor: '#000000',
-            padding: { x: 10, y: 5 }
+        // Name tag with polished styling
+        const text = this.add.text(0, -35, playerData.name, {
+            fontSize: '16px',
+            fontFamily: 'Inter, Arial, sans-serif',
+            color: '#ffffff',
+            backgroundColor: '#000000aa',
+            padding: { x: 8, y: 4 }
         }).setOrigin(0.5).setDepth(101);
         container.add(text);
 
@@ -211,9 +234,10 @@ export class MainScene extends Phaser.Scene {
         this.players.set(playerData.id, container);
 
         // If this is our player, make camera follow
-        if (playerData.id === this.myPlayerId) {
-            console.log('Camera following my player:', playerData.id);
+        if (playerData.id === this.myPlayerId || playerData.id === this.gameManager.socket.id) {
+            console.log('Detected my player! ID:', playerData.id, 'Following...');
             this.cameras.main.startFollow(container, true, 0.1, 0.1);
+            this.myPlayerId = playerData.id; // Sync it just in case
         }
     }
 
